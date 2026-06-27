@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0043)file:///C:/Users/garib/Downloads/index.html -->
+<!-- saved from url=(0045)file:///C:/Users/garib/Downloads/index_1.html -->
 <html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -253,6 +253,7 @@
           <div class="user-role" id="top-role"></div>
         </div>
       </div>
+      <button class="btn-logout" onclick="openChangePwd()" style="margin-right:4px;">🔑 Senha</button>
       <button class="btn-logout" onclick="doLogout()">Sair</button>
     </div>
   </div>
@@ -536,6 +537,50 @@
   </div>
 </div>
 
+<!-- MODAL TROCAR SENHA -->
+<div class="modal-overlay" id="pwd-modal">
+  <div class="modal" style="width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">🔑 Alterar senha</div>
+      <button class="modal-close" onclick="closeModal(&#39;pwd-modal&#39;)">×</button>
+    </div>
+    <div style="margin-bottom:6px; font-size:12px; color:var(--text-muted);">
+      Alterando senha para: <strong id="pwd-username"></strong>
+    </div>
+    <div class="form-group" style="margin-top:16px;">
+      <label>Senha atual</label>
+      <input type="password" id="pwd-current" placeholder="Digite sua senha atual">
+      <div class="field-error-msg">Senha incorreta</div>
+    </div>
+    <div class="form-group">
+      <label class="required-label">Nova senha</label>
+      <input type="password" id="pwd-new" placeholder="Mínimo 6 caracteres">
+      <div class="field-error-msg">Mínimo 6 caracteres</div>
+    </div>
+    <div class="form-group">
+      <label class="required-label">Confirmar nova senha</label>
+      <input type="password" id="pwd-confirm" placeholder="Repita a nova senha">
+      <div class="field-error-msg">As senhas não coincidem</div>
+    </div>
+    <!-- Só para o diretor: trocar senha de outro usuário -->
+    <div class="form-group" id="pwd-target-wrap" style="display:none;">
+      <label>Resetar senha de outro usuário</label>
+      <select id="pwd-target">
+        <option value="">— Minha própria senha —</option>
+        <option value="ana_paula">Ana Paula</option>
+        <option value="thiago_lima">Thiago Lima</option>
+        <option value="alan_almeida">Alan Almeida</option>
+        <option value="orlando_soares">Orlando Soares</option>
+      </select>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Como diretor você pode resetar a senha de qualquer gerente.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal(&#39;pwd-modal&#39;)">Cancelar</button>
+      <button class="btn-save" onclick="saveNewPwd()">Salvar nova senha</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -560,6 +605,61 @@ async function sbFetch(endpoint, options = {}) {
   }
   const text = await res.text();
   return text ? JSON.parse(text) : [];
+}
+
+// ===== SUPABASE: USUÁRIOS/SENHAS =====
+async function sbGetUsuarios() {
+  try {
+    return await sbFetch('usuarios?order=id.asc');
+  } catch(e) { return []; }
+}
+
+async function sbSaveUsuario(u) {
+  const existing = await sbFetch(`usuarios?id=eq.${u.id}`);
+  if (existing.length > 0) {
+    return await sbFetch(`usuarios?id=eq.${u.id}`, {
+      method: 'PATCH', body: JSON.stringify(u)
+    });
+  } else {
+    return await sbFetch('usuarios', {
+      method: 'POST', body: JSON.stringify(u)
+    });
+  }
+}
+
+// Senhas padrão iniciais (usadas só na primeira vez)
+const SENHAS_PADRAO = {
+  gabriel: 'fibra2025',
+  ana_paula: 'fibra2025',
+  thiago_lima: 'fibra2025',
+  alan_almeida: 'fibra2025',
+  orlando_soares: 'fibra2025',
+};
+
+let _usuarios = {}; // { id: { senha } }
+
+async function loadUsuarios() {
+  try {
+    const rows = await sbGetUsuarios();
+    rows.forEach(r => { _usuarios[r.id] = r; });
+    // Se não existe no banco, criar com senha padrão
+    for (const [uid, u] of Object.entries(USERS)) {
+      if (!_usuarios[uid]) {
+        const novo = { id: uid, senha: SENHAS_PADRAO[uid] || 'fibra2025' };
+        _usuarios[uid] = novo;
+        await sbSaveUsuario(novo);
+      }
+    }
+  } catch(e) {
+    console.warn('Usando senhas padrão (offline):', e);
+    for (const [uid] of Object.entries(USERS)) {
+      _usuarios[uid] = { id: uid, senha: SENHAS_PADRAO[uid] || 'fibra2025' };
+    }
+  }
+}
+
+function getSenha(uid) {
+  return (_usuarios[uid]?.senha) || SENHAS_PADRAO[uid] || 'fibra2025';
 }
 
 // ===== SUPABASE: PARCEIROS =====
@@ -613,6 +713,7 @@ let _dbReady = false;
 async function loadAllData() {
   try {
     showLoadingOverlay(true);
+    await loadUsuarios();
     [_parceiros, _vendas] = await Promise.all([sbGetParceiros(), sbGetVendas()]);
     _dbReady = true;
     showLoadingOverlay(false);
@@ -661,7 +762,7 @@ function doLogin() {
   const pass = document.getElementById('login-pass').value;
   const err  = document.getElementById('login-error');
   if (!uid || !USERS[uid]) { err.style.display='block'; err.textContent='Selecione um usuário.'; return; }
-  if (pass !== USERS[uid].pass) { err.style.display='block'; err.textContent='Senha incorreta.'; return; }
+  if (pass !== getSenha(uid)) { err.style.display='block'; err.textContent='Senha incorreta.'; return; }
   err.style.display='none';
   currentUser = { id:uid, ...USERS[uid] };
   document.getElementById('login-screen').style.display='none';
@@ -1359,6 +1460,65 @@ document.addEventListener('input', function(e) {
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
 });
+
+// ===== TROCAR SENHA =====
+function openChangePwd() {
+  clearFieldErrors();
+  document.getElementById('pwd-current').value = '';
+  document.getElementById('pwd-new').value = '';
+  document.getElementById('pwd-confirm').value = '';
+  document.getElementById('pwd-username').textContent = currentUser.name;
+
+  // Diretor pode resetar senha de outros
+  const targetWrap = document.getElementById('pwd-target-wrap');
+  const targetSel = document.getElementById('pwd-target');
+  if (currentUser.type === 'director') {
+    targetWrap.style.display = 'block';
+    targetSel.value = '';
+  } else {
+    targetWrap.style.display = 'none';
+  }
+  document.getElementById('pwd-modal').classList.add('open');
+  document.getElementById('pwd-current').focus();
+}
+
+async function saveNewPwd() {
+  clearFieldErrors();
+  const current  = document.getElementById('pwd-current').value;
+  const newPwd   = document.getElementById('pwd-new').value;
+  const confirm  = document.getElementById('pwd-confirm').value;
+  const targetId = currentUser.type === 'director'
+    ? (document.getElementById('pwd-target').value || currentUser.id)
+    : currentUser.id;
+
+  let hasError = false;
+
+  // Verificar senha atual (sempre do usuário logado)
+  if (current !== getSenha(currentUser.id)) {
+    document.getElementById('pwd-current').closest('.form-group').classList.add('field-error');
+    hasError = true;
+  }
+  if (newPwd.length < 6) {
+    document.getElementById('pwd-new').closest('.form-group').classList.add('field-error');
+    hasError = true;
+  }
+  if (newPwd !== confirm) {
+    document.getElementById('pwd-confirm').closest('.form-group').classList.add('field-error');
+    hasError = true;
+  }
+  if (hasError) { showToast('Verifique os campos destacados.', true); return; }
+
+  // Salvar no banco
+  try {
+    _usuarios[targetId] = { id: targetId, senha: newPwd };
+    await sbSaveUsuario({ id: targetId, senha: newPwd });
+    closeModal('pwd-modal');
+    const nomeAlvo = targetId === currentUser.id ? 'Sua senha' : `Senha de ${USERS[targetId]?.name}`;
+    showToast(`✅ ${nomeAlvo} foi alterada com sucesso!`);
+  } catch(e) {
+    showToast('Erro ao salvar a senha. Tente novamente.', true);
+  }
+}
 
 // Drag & drop no PDF
 document.addEventListener('DOMContentLoaded', () => {
