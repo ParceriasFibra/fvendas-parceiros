@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0046)file:///C:/Users/garib/Downloads/index_16.html -->
+<!-- saved from url=(0046)file:///C:/Users/garib/Downloads/index_17.html -->
 <html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -343,7 +343,7 @@
     .nav-tab { font-size:11px; padding:10px 6px; }
   }
 </style>
-<link rel="manifest" href="blob:null/d4ff1057-dc70-432d-957c-b9ca6313cb76"></head>
+<link rel="manifest" href="blob:null/21cc783a-3be6-49c1-b90b-8eaea748aeb2"></head>
 <body>
 
 <!-- LOGIN -->
@@ -2103,25 +2103,8 @@ function importarPlanilha() {
 </script>
 
 <script>
-// ===== SERVICE WORKER (PWA offline) =====
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const swCode = `
-      const CACHE = 'fvendas-v1';
-      self.addEventListener('install', e => {
-        e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/fvendas-parceiros/'])));
-      });
-      self.addEventListener('fetch', e => {
-        e.respondWith(
-          caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('/fvendas-parceiros/')))
-        );
-      });
-    `;
-    const blob = new Blob([swCode], {type: 'application/javascript'});
-    navigator.serviceWorker.register(URL.createObjectURL(blob))
-      .catch(e => console.log('SW:', e));
-  });
-}
+// ===== PWA — sem Service Worker via blob (não suportado no GitHub Pages) =====
+// O manifest e os meta tags garantem a instalação na tela inicial.
 
 // ===== BANNER "ADICIONAR À TELA INICIAL" =====
 let deferredPrompt = null;
